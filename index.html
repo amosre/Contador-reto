@@ -6,22 +6,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Días sin reto</title>
   <style>
-    :root { --bg:#f4f6f9; --card:#fff; --primary:#0ea5e9; --primary-dark:#0284c7;
-            --text:#0f172a; --muted:#6b7280; --danger:#ef4444; --danger-dark:#dc2626; }
-    body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;
-           background:var(--bg); color:var(--text); display:grid; place-items:center; min-height:100vh; padding:1rem; }
-    .card { background:var(--card); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08);
-            max-width:520px; width:100%; padding:2rem 2rem 1.5rem; }
+    body { font-family: system-ui, Arial; margin:0; background:#f4f6f9; color:#0f172a;
+           display:grid; place-items:center; min-height:100vh; padding:1rem; }
+    .card { background:#fff; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08);
+            max-width:520px; width:100%; padding:2rem; }
     h1 { margin:0 0 0.75rem; font-size:1.75rem; }
-    .count { font-size:4rem; font-weight:800; margin:0.25rem 0 0.5rem; }
-    .sub { color:var(--muted); font-size:0.98rem; margin-top:0.5rem; }
+    .count { font-size:3.5rem; font-weight:800; margin:0.25rem 0 0.5rem; }
+    .sub { color:#6b7280; font-size:0.98rem; margin-top:0.5rem; }
     .row { display:flex; gap:0.75rem; margin-top:1.25rem; align-items:center; flex-wrap:wrap; }
     button { border:none; border-radius:10px; cursor:pointer; padding:0.7rem 1rem; font-weight:600; }
-    .primary { background:var(--primary); color:#fff; } .primary:hover{ background:var(--primary-dark); }
-    .danger { background:var(--danger); color:#fff; } .danger:hover{ background:var(--danger-dark); }
-    .muted { color:var(--muted); font-size:0.9rem; margin-top:0.75rem; }
-    .error { color:var(--danger-dark); margin-top:0.5rem; display:none; }
-    .spinner { width:18px; height:18px; border:2px solid rgba(2,132,199,0.25); border-top-color:var(--primary);
+    .primary { background:#0ea5e9; color:#fff; } .primary:hover{ background:#0284c7; }
+    .danger { background:#ef4444; color:#fff; } .danger:hover{ background:#dc2626; }
+    .muted { color:#6b7280; font-size:0.9rem; margin-top:0.75rem; }
+    .error { color:#dc2626; margin-top:0.5rem; display:none; white-space:pre-line; }
+    .spinner { width:18px; height:18px; border:2px solid rgba(2,132,199,0.25); border-top-color:#0ea5e9;
                border-radius:50%; animation:spin 0.9s linear infinite; display:none; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
@@ -43,7 +41,7 @@
   </div>
 
   <script>
-    // Usa tus valores (los de la sección 1)
+    // Cambia estos si usaste otros nombres:
     const NAMESPACE = "andre-mosre-hidraulica-2025";
     const KEY = "dias-sin-reto-start-ts";
 
@@ -76,7 +74,7 @@
       return Math.max(0, Math.floor((nowMid - startMid) / 86400000));
     }
 
-    // --- CountAPI helpers (con reintentos y enable_reset) ---
+    // --- CountAPI helpers ---
     async function countapiGet() {
       const url = `https://api.countapi.xyz/get/${encodeURIComponent(NAMESPACE)}/${encodeURIComponent(KEY)}`;
       const res = await fetch(url);
@@ -85,7 +83,6 @@
       return Number(data.value);
     }
     async function countapiCreate(initialTs) {
-      // IMPORTANTE: enable_reset=1 para que 'set' funcione
       const url = `https://api.countapi.xyz/create?namespace=${encodeURIComponent(NAMESPACE)}&key=${encodeURIComponent(KEY)}&value=${initialTs}&enable_reset=1`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`CREATE fallo: ${res.status}`);
@@ -99,24 +96,31 @@
     }
 
     async function ensureStartExists() {
-      // Hasta 3 intentos por si CountAPI está intermitente
-      for (let i = 0; i < 3; i++) {
+      showError("");
+      for (let intento = 1; intento <= 3; intento++) {
         try {
           const v = await countapiGet();
+          console.log("GET value:", v);
           if (!Number.isNaN(v)) return v;
-        } catch {}
+        } catch (e) {
+          console.warn(`GET intento ${intento} falló:`, e);
+        }
         try {
-          await countapiCreate(Date.now());
+          const nowTs = Date.now();
+          await countapiCreate(nowTs);
+          console.log("CREATE hecho; ahora GET...");
           const v2 = await countapiGet();
           if (!Number.isNaN(v2)) return v2;
-        } catch {}
-        await new Promise(r => setTimeout(r, 600 * (i + 1)));
+        } catch (e) {
+          console.warn(`CREATE/GET intento ${intento} falló:`, e);
+        }
+        await new Promise(r => setTimeout(r, 600 * intento));
       }
       throw new Error("No se pudo crear/leer la clave en CountAPI.");
     }
 
     async function updateAll() {
-      showError(""); showSpinner(true);
+      showSpinner(true);
       try {
         const startTs = await ensureStartExists();
         elCount.textContent = daysSince(startTs).toLocaleString("es-CL");
@@ -133,13 +137,13 @@
     async function resetCounter() {
       const ok = confirm("¿Reiniciar el contador y establecer la fecha de inicio como hoy?");
       if (!ok) return;
-      showError(""); showSpinner(true);
+      showSpinner(true);
       try {
         await countapiSet(Date.now());
         await updateAll();
       } catch (e) {
         console.error(e);
-        showError("No se pudo reiniciar el contador (CountAPI puede estar caído).");
+        showError("No se pudo reiniciar el contador (CountAPI puede estar caído o la clave no permite 'set').");
       } finally {
         showSpinner(false);
       }
@@ -154,7 +158,9 @@
 
     btnRefresh.addEventListener("click", updateAll);
     btnReset.addEventListener("click", resetCounter);
+
+    // Inicio
     updateAll();
-    scheduleMidnightRefresh();
+       scheduleMidnightRefresh();
   </script>
-</</body>
+</body>
