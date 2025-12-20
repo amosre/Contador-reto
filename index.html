@@ -6,25 +6,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Días sin reto</title>
   <style>
-    :root {
-      --bg:#f4f6f9; --card:#fff; --primary:#0ea5e9; --primary-dark:#0284c7;
-      --text:#0f172a; --muted:#6b7280; --danger:#ef4444; --danger-dark:#dc2626;
-    }
+    :root { --bg:#f4f6f9; --card:#fff; --primary:#0ea5e9; --primary-dark:#0284c7;
+            --text:#0f172a; --muted:#6b7280; --danger:#ef4444; --danger-dark:#dc2626; }
     body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;
-      background:var(--bg); color:var(--text); display:grid; place-items:center; min-height:100vh; padding:1rem;}
+           background:var(--bg); color:var(--text); display:grid; place-items:center; min-height:100vh; padding:1rem; }
     .card { background:var(--card); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08);
-      max-width:520px; width:100%; padding:2rem 2rem 1.5rem;}
+            max-width:520px; width:100%; padding:2rem 2rem 1.5rem; }
     h1 { margin:0 0 0.75rem; font-size:1.75rem; }
-    .count { font-size:4rem; font-weight:800; line-height:1; margin:0.25rem 0 0.5rem;}
-    .sub { color:var(--muted); font-size:0.98rem; margin-top:0.5rem;}
-    .row { display:flex; gap:0.75rem; margin-top:1.25rem; align-items:center; flex-wrap:wrap;}
-    button { border:none; border-radius:10px; cursor:pointer; padding:0.7rem 1rem; font-weight:600;}
-    .primary { background:var(--primary); color:#fff;} .primary:hover{background:var(--primary-dark);}
-    .danger { background:var(--danger); color:#fff;} .danger:hover{background:var(--danger-dark);}
-    .muted { color:var(--muted); font-size:0.9rem; margin-top:0.75rem;}
-    .error { color:var(--danger-dark); margin-top:0.5rem; display:none;}
-    .spinner { width:18px; height:18px; border:2px solid rgba(2,132,199,0.25);
-      border-top-color:var(--primary); border-radius:50%; animation:spin 0.9s linear infinite; display:none;}
+    .count { font-size:4rem; font-weight:800; margin:0.25rem 0 0.5rem; }
+    .sub { color:var(--muted); font-size:0.98rem; margin-top:0.5rem; }
+    .row { display:flex; gap:0.75rem; margin-top:1.25rem; align-items:center; flex-wrap:wrap; }
+    button { border:none; border-radius:10px; cursor:pointer; padding:0.7rem 1rem; font-weight:600; }
+    .primary { background:var(--primary); color:#fff; } .primary:hover{ background:var(--primary-dark); }
+    .danger { background:var(--danger); color:#fff; } .danger:hover{ background:var(--danger-dark); }
+    .muted { color:var(--muted); font-size:0.9rem; margin-top:0.75rem; }
+    .error { color:var(--danger-dark); margin-top:0.5rem; display:none; }
+    .spinner { width:18px; height:18px; border:2px solid rgba(2,132,199,0.25); border-top-color:var(--primary);
+               border-radius:50%; animation:spin 0.9s linear infinite; display:none; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -45,9 +43,9 @@
   </div>
 
   <script>
-    // === CONFIGURA TU ESPACIO ÚNICO ===
-    const NAMESPACE = "andre-mosre-hidraulica-2025"; // cámbialo por uno único y difícil de adivinar
-    const KEY = "dias-sin-reto-start-ts";            // guarda el timestamp de inicio
+    // Usa tus valores (los de la sección 1)
+    const NAMESPACE = "andre-mosre-hidraulica-2025";
+    const KEY = "dias-sin-reto-start-ts";
 
     const elCount = document.getElementById("count");
     const elStart = document.getElementById("start-date");
@@ -57,15 +55,9 @@
     const btnRefresh = document.getElementById("refresh");
     const btnReset = document.getElementById("reset");
 
-    function formatDate(dt) {
-      try {
-        return new Intl.DateTimeFormat("es-CL", {
-          weekday: "long", year: "numeric", month: "long", day: "numeric"
-        }).format(dt);
-      } catch {
-        return dt.toLocaleDateString("es-CL");
-      }
-    }
+    const fmtDate = (dt) =>
+      new Intl.DateTimeFormat("es-CL", { weekday:"long", year:"numeric", month:"long", day:"numeric" }).format(dt);
+
     function showSpinner(active) {
       elSpinner.style.display = active ? "inline-block" : "none";
       btnRefresh.disabled = active; btnReset.disabled = active;
@@ -76,16 +68,15 @@
     function markLastUpdate() {
       const now = new Date();
       elLastUpd.textContent = "Última actualización: " +
-        new Intl.DateTimeFormat("es-CL", {hour:"2-digit",minute:"2-digit",second:"2-digit"}).format(now);
+        new Intl.DateTimeFormat("es-CL", { hour:"2-digit", minute:"2-digit", second:"2-digit" }).format(now);
     }
     function daysSince(startTs) {
       const startMid = new Date(startTs); startMid.setHours(0,0,0,0);
       const nowMid = new Date(); nowMid.setHours(0,0,0,0);
-      const days = Math.floor((nowMid - startMid) / 86400000);
-      return Math.max(0, days);
+      return Math.max(0, Math.floor((nowMid - startMid) / 86400000));
     }
 
-    // === ENDPOINTS COUNTAPI ===
+    // --- CountAPI helpers (con reintentos y enable_reset) ---
     async function countapiGet() {
       const url = `https://api.countapi.xyz/get/${encodeURIComponent(NAMESPACE)}/${encodeURIComponent(KEY)}`;
       const res = await fetch(url);
@@ -94,34 +85,32 @@
       return Number(data.value);
     }
     async function countapiCreate(initialTs) {
+      // IMPORTANTE: enable_reset=1 para que 'set' funcione
       const url = `https://api.countapi.xyz/create?namespace=${encodeURIComponent(NAMESPACE)}&key=${encodeURIComponent(KEY)}&value=${initialTs}&enable_reset=1`;
       const res = await fetch(url);
-      // Aunque ya exista, algunos proxies devuelven 200 con el valor existente
       if (!res.ok) throw new Error(`CREATE fallo: ${res.status}`);
       return res.json();
     }
     async function countapiSet(newTs) {
-      // 'set' solo funciona si la clave se creó con enable_reset=1
       const url = `https://api.countapi.xyz/set/${encodeURIComponent(NAMESPACE)}/${encodeURIComponent(KEY)}?value=${newTs}`;
-      const res = await fetch(url, { method: "GET" });
+      const res = await fetch(url, { method:"GET" });
       if (!res.ok) throw new Error(`SET fallo: ${res.status}`);
       return res.json();
     }
 
     async function ensureStartExists() {
-      // Reintentos simples por si CountAPI está intermitente
+      // Hasta 3 intentos por si CountAPI está intermitente
       for (let i = 0; i < 3; i++) {
         try {
           const v = await countapiGet();
-          if (!Number.isNaN(v) && v > 0) return v;
+          if (!Number.isNaN(v)) return v;
         } catch {}
         try {
-          const nowTs = Date.now();
-          await countapiCreate(nowTs);
+          await countapiCreate(Date.now());
           const v2 = await countapiGet();
-          if (!Number.isNaN(v2) && v2 > 0) return v2;
+          if (!Number.isNaN(v2)) return v2;
         } catch {}
-        await new Promise(r => setTimeout(r, 500 * (i + 1)));
+        await new Promise(r => setTimeout(r, 600 * (i + 1)));
       }
       throw new Error("No se pudo crear/leer la clave en CountAPI.");
     }
@@ -131,11 +120,11 @@
       try {
         const startTs = await ensureStartExists();
         elCount.textContent = daysSince(startTs).toLocaleString("es-CL");
-        elStart.textContent = formatDate(new Date(startTs));
+        elStart.textContent = fmtDate(new Date(startTs));
         markLastUpdate();
       } catch (e) {
         console.error(e);
-        showError("Error al actualizar el contador. Si persiste, intenta más tarde o usa la alternativa de abajo.");
+        showError("Ocurrió un error al obtener/actualizar el contador. Vuelve a intentar en unos minutos.");
       } finally {
         showSpinner(false);
       }
@@ -146,8 +135,7 @@
       if (!ok) return;
       showError(""); showSpinner(true);
       try {
-        const nowTs = Date.now();
-        await countapiSet(nowTs);
+        await countapiSet(Date.now());
         await updateAll();
       } catch (e) {
         console.error(e);
@@ -165,9 +153,8 @@
     }
 
     btnRefresh.addEventListener("click", updateAll);
-    btnReset.addEventListener("click    btnReset.addEventListener("click", resetCounter);
-
+    btnReset.addEventListener("click", resetCounter);
     updateAll();
     scheduleMidnightRefresh();
   </script>
-</body>
+</</body>
